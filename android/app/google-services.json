@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1080771589911",
+    "project_id": "clicker-em-flutter",
+    "storage_bucket": "clicker-em-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1080771589911:android:d34dcd996ab6e0fa85a952",
+        "android_client_info": {
+          "package_name": "com.example.clicker_em_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXZZSmgfqEV-E_fF2iLwi8kLSPkcrH8U4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
