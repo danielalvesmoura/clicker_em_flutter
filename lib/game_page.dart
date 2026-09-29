@@ -16,6 +16,10 @@ class _GamePageState extends State<GamePage> {
     criarSave();
   }
 
+  Future<void> sair() async {
+    await FirebaseAuth.instance.signOut();
+  }
+
   Future<void> criarSave() async {
     final usuario = FirebaseAuth.instance.currentUser;
 
@@ -32,11 +36,42 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
+  Future<void> clicar() async {
+    final usuario = FirebaseAuth.instance.currentUser;
+
+    if (usuario == null) return;
+
+    final documento = FirebaseFirestore.instance
+        .collection('jogadores')
+        .doc(usuario.uid);
+
+    final snapshot = await documento.get();
+
+    if (!snapshot.exists) return;
+
+    final dados = snapshot.data() as Map<String, dynamic>;
+    final moedasAtuais = dados['moedas'] ?? 0;
+    final poderClique = dados['poderClique'] ?? 1;
+
+    await documento.update({'moedas': moedasAtuais + poderClique});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+
+      appBar: AppBar(
+        title: const Text('Clicker Game'),
+        actions: [
+          IconButton(
+            onPressed: sair,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
+      
       body: StreamBuilder<DocumentSnapshot>(
-        
+
         stream: FirebaseFirestore.instance
             .collection('jogadores')
             .doc(FirebaseAuth.instance.currentUser!.uid)
@@ -51,9 +86,19 @@ class _GamePageState extends State<GamePage> {
           final moedas = dados['moedas'];
 
           return Center(
-            child: Text(
-              'Moedas: $moedas',
-              style: const TextStyle(fontSize: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text('Moedas: $moedas', style: const TextStyle(fontSize: 24)),
+            
+                const SizedBox(height: 20),
+            
+                ElevatedButton(
+                  onPressed: clicar,
+                  child: const Text('Clique!'),
+                ),
+              ],
             ),
           );
         },
