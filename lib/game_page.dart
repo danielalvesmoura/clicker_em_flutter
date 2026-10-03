@@ -271,93 +271,201 @@ class _GamePageState extends State<GamePage> {
                         onPressed: clicar,
                         child: const Text('CLICAR'),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      Text('Nível: $nivel'),
-                      Text('Poder por clique: $poderClique'),
                     ],
                   ),
                 ),
               ),
 
-              Container(
-                width: double.infinity,
-                height: 500,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  border: Border(
-                    top: BorderSide(
-                      color: Colors.grey.shade300,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Upgrades',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+              DefaultTabController(
+                length: 2,
+                child: Container(
+                  width: double.infinity,
+                  height: 500,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.grey.shade300,
                       ),
                     ),
+                  ),
 
-                    SizedBox(height: 15),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Upgrades',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
 
-                    FutureBuilder<int?>(
-                      future: buscarPrecoMinerador(mineradores),
-                      builder: (context, snapshotPreco) {
-                        if (!snapshotPreco.hasData) {
-                          return const Text('Carregando preço...');
-                        }
+                      const SizedBox(height: 10),
 
-                        final preco = snapshotPreco.data!;
+                      const TabBar(
+                        tabs: [
+                          Tab(text: 'Automáticos'),
+                          Tab(text: 'Cliques'),
+                        ],
+                      ),
 
-                        return Row(
+                      const SizedBox(height: 15),
+
+                      Expanded(
+                        child: TabBarView(
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Minerador',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+
+                            // ========================
+                            // ABA AUTOMÁTICOS
+                            // ========================
+
+                            FutureBuilder<int?>(
+                              future: buscarPrecoMinerador(mineradores),
+                              builder: (context, snapshotPreco) {
+                                if (!snapshotPreco.hasData) {
+                                  return const Text('Carregando preço...');
+                                }
+
+                                final preco = snapshotPreco.data!;
+
+                                return Align(
+                                  alignment: Alignment.topCenter,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Minerador',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                              ),
+                                            ),
+
+                                            const Text('Minera ouro.'),
+
+                                            const Text(
+                                              'Cada minerador gera +1 moeda/s.',
+                                            ),
+
+                                            Text(
+                                              'Possui: $mineradores',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Preço: $preco moedas',
+                                          ),
+
+                                          const SizedBox(height: 5),
+
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              comprarMinerador(
+                                                moedas,
+                                                mineradores,
+                                              );
+                                            },
+                                            child: const Text('Comprar'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-                                  const Text('Minera ouro.'),
-                                  const Text(
-                                    'Cada minerador gera +1 moeda/s.',
-                                  ),
-                                  Text('Possui: $mineradores'),
-                                ],
-                              ),
+                                );
+                              },
                             ),
 
+                            // ========================
+                            // ABA CLIQUES
+                            // ========================
 
-                            Column(
-                              children: [
-                                Text('Preço: $preco moedas'),
+                            FutureBuilder<Map<String, dynamic>?>(
+                              future: buscarUpgrade(nivel + 1),
+                              builder: (context, snapshotUpgrade) {
+                                if (!snapshotUpgrade.hasData) {
+                                  return const Text(
+                                    'Carregando upgrade...',
+                                  );
+                                }
 
-                                ElevatedButton(
-                                  onPressed: () {
-                                    comprarMinerador(
-                                      moedas,
-                                      mineradores,
-                                    );
-                                  },
-                                  child: const Text('Comprar'),
-                                ),
-                              ],
-                            )
+                                final upgrade =
+                                    snapshotUpgrade.data!;
+
+                                return Align(
+                                  alignment: Alignment.topCenter,
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Força do clique',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 18,
+                                              ),
+                                            ),
+
+                                            const Text(
+                                              'Aumenta as moedas recebidas por clique.',
+                                            ),
+
+                                            Text(
+                                              'Poder atual: $poderClique',
+                                            ),
+
+                                            Text(
+                                              'Próximo poder: ${upgrade['poderClique']}',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Preço: ${upgrade['custo']} moedas',
+                                          ),
+
+                                          const SizedBox(height: 5),
+
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              comprarUpgrade(
+                                                moedas,
+                                                nivel,
+                                              );
+                                            },
+                                            child: const Text('Comprar'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
-                        );
-                      },
-                    )
-                  ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
