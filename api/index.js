@@ -45,6 +45,40 @@ app.post('/upgrade/comprar', (req, res) => {
   });
 });
 
+app.post('/minerador/comprar', (req, res) => {
+  const { moedas, mineradores } = req.body;
+
+  const custo = Math.pow((0.7 * mineradores), 2) * 100;
+
+  if (moedas < custo) {
+    return res.status(400).json({
+      erro: 'Moedas insuficientes'
+    });
+  }
+
+  res.json({
+    moedas: moedas - custo,
+    mineradores: mineradores + 1
+  });
+});
+
 app.listen(3000, () => {
   console.log('API rodando em http://localhost:3000');
+});
+
+app.get('/minerador/:quantidade', (req, res) => {
+  const quantidade = Number(req.params.quantidade);
+
+  if (!Number.isInteger(quantidade) || quantidade < 0) {
+    return res.status(400).json({
+      erro: 'Quantidade inválida'
+    });
+  }
+
+  const custo = Math.pow((0.7 * quantidade), 2) * 100;
+
+  res.json({
+    quantidadeAtual: quantidade,
+    custoProximo: custo
+  });
 });

@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import 'dart:async';
+
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
 
@@ -17,9 +19,38 @@ class _GamePageState extends State<GamePage> {
   void initState() {
     super.initState();
     criarSave();
+    iniciarTimer();
   }
-  
 
+  Timer? timer;
+  int mineradoresAtuais = 0;
+
+  void iniciarTimer() {
+    timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) async {
+        if (mineradoresAtuais <= 0) return;
+
+        final usuario = FirebaseAuth.instance.currentUser;
+
+        if (usuario == null) return;
+
+        await FirebaseFirestore.instance
+            .collection('jogadores')
+            .doc(usuario.uid)
+            .update({
+              'moedas': FieldValue.increment(mineradoresAtuais),
+            });
+      },
+    );
+  }
+
+  @override
+    void dispose() {
+      timer?.cancel();
+      super.dispose();
+    }
+  
   Future<void> sair() async {
     await FirebaseAuth.instance.signOut();
   }
@@ -36,7 +67,20 @@ class _GamePageState extends State<GamePage> {
     final snapshot = await documento.get();
 
     if (!snapshot.exists) {
-      await documento.set({'moedas': 0, 'poderClique': 1, 'nivel': 1});
+      await documento.set({
+        'moedas': 0, 
+        'poderClique': 1, 
+        'nivel': 1,
+        'mineradores': 0,
+      });
+    } else {
+      final dados = snapshot.data()!;
+
+      if (!dados.containsKey('mineradores')) {
+        await documento.update({
+          'mineradores': 0,
+        });
+      }
     }
   }
 
@@ -117,6 +161,64 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
+  Future<void> comprarMinerador(
+    int moedasAtuais,
+    int mineradoresAtuais,
+  ) async {
+    final usuario = FirebaseAuth.instance.currentUser;
+
+    if (usuario == null) return;
+
+    final url = Uri.parse(
+      'http://localhost:3000/minerador/comprar',
+    );
+
+    final resposta = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'moedas': moedasAtuais,
+        'mineradores': mineradoresAtuais,
+      }),
+    );
+
+    final dados = jsonDecode(resposta.body);
+
+    if (resposta.statusCode == 200) {
+      await FirebaseFirestore.instance
+          .collection('jogadores')
+          .doc(usuario.uid)
+          .update({
+            'moedas': dados['moedas'],
+            'mineradores': dados['mineradores'],
+          });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(dados['erro']),
+        ),
+      );
+    }
+  }
+
+  Future<int?> buscarPrecoMinerador(int quantidade) async {
+    final url = Uri.parse(
+      'http://localhost:3000/minerador/$quantidade',
+    );
+
+    final resposta = await http.get(url);
+
+    if (resposta.statusCode == 200) {
+      final dados = jsonDecode(resposta.body);
+
+      return dados['custoProximo'];
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -147,70 +249,118 @@ class _GamePageState extends State<GamePage> {
           final moedas = dados['moedas'];
           final nivel = dados['nivel'] ?? 1;
           final poderClique = dados['poderClique'] ?? 1;
+          final mineradores = dados['mineradores'] ?? 0;
 
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text('Moedas: $moedas', style: const TextStyle(fontSize: 24)),
-            
-                const SizedBox(height: 20),
-            
-                ElevatedButton(
-                  onPressed: clicar,
-                  child: const Text('Clique!'),
+          mineradoresAtuais = mineradores;
+
+          return Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Moedas: $moedas',
+                        style: const TextStyle(fontSize: 32),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      ElevatedButton(
+                        onPressed: clicar,
+                        child: const Text('CLICAR'),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Text('Nível: $nivel'),
+                      Text('Poder por clique: $poderClique'),
+                    ],
+                  ),
                 ),
+              ),
 
-                const SizedBox(height: 30),
-
-                Text(
-                  'Nível: $nivel',
-                  style: const TextStyle(fontSize: 20),
+              Container(
+                width: double.infinity,
+                height: 500,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
                 ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Upgrades',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
 
-                Text(
-                  'Poder por clique: $poderClique',
-                  style: const TextStyle(fontSize: 20),
+                    SizedBox(height: 15),
+
+                    FutureBuilder<int?>(
+                      future: buscarPrecoMinerador(mineradores),
+                      builder: (context, snapshotPreco) {
+                        if (!snapshotPreco.hasData) {
+                          return const Text('Carregando preço...');
+                        }
+
+                        final preco = snapshotPreco.data!;
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Minerador',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text('Minera ouro.'),
+                                  const Text(
+                                    'Cada minerador gera +1 moeda/s.',
+                                  ),
+                                  Text('Possui: $mineradores'),
+                                ],
+                              ),
+                            ),
+
+
+                            Column(
+                              children: [
+                                Text('Preço: $preco moedas'),
+
+                                ElevatedButton(
+                                  onPressed: () {
+                                    comprarMinerador(
+                                      moedas,
+                                      mineradores,
+                                    );
+                                  },
+                                  child: const Text('Comprar'),
+                                ),
+                              ],
+                            )
+                          ],
+                        );
+                      },
+                    )
+                  ],
                 ),
-
-                const SizedBox(height: 20),
-
-                FutureBuilder<Map<String, dynamic>?>(
-                  future: buscarUpgrade(nivel + 1),
-                  builder: (context, snapshotUpgrade) {
-                    if (!snapshotUpgrade.hasData) {
-                      return const CircularProgressIndicator();
-                    }
-
-                    final upgrade = snapshotUpgrade.data!;
-
-                    return Column(
-                      children: [
-                        Text(
-                          'Próximo nível: ${upgrade['nivel']}',
-                        ),
-                        Text(
-                          'Custo: ${upgrade['custo']} moedas',
-                        ),
-                        Text(
-                          'Novo poder: ${upgrade['poderClique']}',
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        ElevatedButton(
-                          onPressed: () {
-                            comprarUpgrade(moedas, nivel);
-                          },
-                          child: const Text('Comprar upgrade'),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),
