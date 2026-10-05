@@ -6,88 +6,170 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/upgrade/:nivel', (req, res) => {
-    const nivel = Number(req.params.nivel);
+const automaticos = {
+  minerador: {
+    nome: 'Minerador',
+    descricao: 'Minera ouro automaticamente.',
+    custoBase: 100,
+    crescimento: 1.35,
+    producaoBase: 1,
+  },
+  fabrica: {
+    nome: 'Fábrica',
+    descricao: 'Produz moedas em escala industrial.',
+    custoBase: 500,
+    crescimento: 1.42,
+    producaoBase: 5,
+  },
+  banco: {
+    nome: 'Banco',
+    descricao: 'Gera moedas a partir de investimentos.',
+    custoBase: 2000,
+    crescimento: 1.5,
+    producaoBase: 20,
+  },
+};
 
-    if (!Number.isInteger(nivel) || nivel < 1) {
-        return res.status(400).json({
-            erro: 'Nível inválido'
-        });
-    }
+const permanentes = {
+  picaretaEficiente: {
+    nome: 'Picareta eficiente',
+    descricao: 'Aumenta permanentemente a força do clique para 2.',
+    custo: 600,
+    efeitos: {
+      picaretaEficiente: true,
+      poderClique: 2,
+    },
+  },
+  franquia: {
+    nome: 'Franquia',
+    descricao: 'Dobra permanentemente a produção de cada Fábrica.',
+    custo: 2500,
+    efeitos: {
+      franquia: true,
+      producaoFabrica: 10,
+    },
+  },
+  investidores: {
+    nome: 'Investidores',
+    descricao: 'Dobra permanentemente a produção de cada Banco.',
+    custo: 8000,
+    efeitos: {
+      investidores: true,
+      producaoBanco: 40,
+    },
+  },
+};
 
-    const custo = Math.round(
-        Math.pow(0.5 * (nivel + 1), 2) * 100
-    );
+function inteiroNaoNegativo(valor) {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero >= 0 ? numero : null;
+}
 
-    const poderClique = nivel;
+function custoAutomatico(tipo, quantidade) {
+  const upgrade = automaticos[tipo];
 
-    res.json({
-        nivel: nivel,
-        custo: custo,
-        poderClique: poderClique
+  if (!upgrade) return null;
+
+  return Math.round(
+    upgrade.custoBase * Math.pow(upgrade.crescimento, quantidade)
+  );
+}
+
+app.get('/automaticos/precos', (req, res) => {
+  const mineradores = inteiroNaoNegativo(req.query.mineradores);
+  const fabricas = inteiroNaoNegativo(req.query.fabricas);
+  const bancos = inteiroNaoNegativo(req.query.bancos);
+
+  if (mineradores === null || fabricas === null || bancos === null) {
+    return res.status(400).json({
+      erro: 'As quantidades dos upgrades automáticos são inválidas.',
     });
+  }
+
+  const quantidades = {
+    minerador: mineradores,
+    fabrica: fabricas,
+    banco: bancos,
+  };
+
+  const resposta = Object.entries(automaticos).map(([tipo, upgrade]) => ({
+    tipo,
+    nome: upgrade.nome,
+    descricao: upgrade.descricao,
+    custo: custoAutomatico(tipo, quantidades[tipo]),
+    producaoBase: upgrade.producaoBase,
+  }));
+
+  res.json({ automaticos: resposta });
 });
 
-app.post('/upgrade/comprar', (req, res) => {
-    const { nivelAtual, moedas } = req.body;
+app.post('/automaticos/comprar', (req, res) => {
+  const { tipo } = req.body;
+  const moedas = inteiroNaoNegativo(req.body.moedas);
+  const quantidadeAtual = inteiroNaoNegativo(req.body.quantidadeAtual);
 
-    const custo = Math.round(
-        Math.pow(0.5 * (nivelAtual + 1), 2) * 100
-    );
+  if (!automaticos[tipo]) {
+    return res.status(400).json({ erro: 'Upgrade automático inválido.' });
+  }
 
-    const poderClique = nivelAtual + 1;
+  if (moedas === null || quantidadeAtual === null) {
+    return res.status(400).json({ erro: 'Dados da compra inválidos.' });
+  }
 
-    if (moedas < custo) {
-        return res.status(400).json({
-            erro: 'Moedas insuficientes'
-        });
-    }
+  const custo = custoAutomatico(tipo, quantidadeAtual);
 
-    res.json({
-        moedas: moedas - custo,
-        nivel: nivelAtual + 1,
-        poderClique: poderClique
-    });
+  if (moedas < custo) {
+    return res.status(400).json({ erro: 'Moedas insuficientes.' });
+  }
+
+  res.json({
+    tipo,
+    custo,
+    moedas: moedas - custo,
+    quantidade: quantidadeAtual + 1,
+  });
 });
 
-app.post('/minerador/comprar', (req, res) => {
-    const { moedas, mineradores } = req.body;
+app.get('/permanentes', (req, res) => {
+  const resposta = Object.entries(permanentes).map(([tipo, upgrade]) => ({
+    tipo,
+    nome: upgrade.nome,
+    descricao: upgrade.descricao,
+    custo: upgrade.custo,
+  }));
 
-    const custo = Math.round(
-        Math.pow(0.2 * (mineradores + 1), 2) * 100 + 100
-    );
-
-    if (moedas < custo) {
-        return res.status(400).json({
-            erro: 'Moedas insuficientes'
-        });
-    }
-
-    res.json({
-        moedas: moedas - custo,
-        mineradores: mineradores + 1
-    });
+  res.json({ permanentes: resposta });
 });
 
-app.get('/minerador/:quantidade', (req, res) => {
-    const quantidade = Number(req.params.quantidade);
+app.post('/permanentes/comprar', (req, res) => {
+  const { tipo, jaComprado } = req.body;
+  const moedas = inteiroNaoNegativo(req.body.moedas);
+  const upgrade = permanentes[tipo];
 
-    if (!Number.isInteger(quantidade) || quantidade < 0) {
-        return res.status(400).json({
-            erro: 'Quantidade inválida'
-        });
-    }
+  if (!upgrade) {
+    return res.status(400).json({ erro: 'Upgrade permanente inválido.' });
+  }
 
-    const custo = Math.round(
-        Math.pow(0.2 * (quantidade + 1), 2) * 100 + 100
-    );
+  if (moedas === null || typeof jaComprado !== 'boolean') {
+    return res.status(400).json({ erro: 'Dados da compra inválidos.' });
+  }
 
-    res.json({
-        quantidadeAtual: quantidade,
-        custoProximo: custo
-    });
+  if (jaComprado) {
+    return res.status(409).json({ erro: 'Este upgrade já foi comprado.' });
+  }
+
+  if (moedas < upgrade.custo) {
+    return res.status(400).json({ erro: 'Moedas insuficientes.' });
+  }
+
+  res.json({
+    tipo,
+    custo: upgrade.custo,
+    moedas: moedas - upgrade.custo,
+    efeitos: upgrade.efeitos,
+  });
 });
 
 app.listen(3000, () => {
-    console.log('API rodando em http://localhost:3000');
+  console.log('API rodando em http://localhost:3000');
 });
